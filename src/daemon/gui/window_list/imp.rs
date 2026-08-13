@@ -5,7 +5,7 @@ use glib::subclass::InitializingObject;
 use glib::subclass::Signal;
 use gtk4::glib::clone;
 use gtk4::subclass::prelude::*;
-use std::sync::OnceLock;
+use std::{cell::Cell, sync::OnceLock};
 
 use gtk4::prelude::*;
 
@@ -17,6 +17,14 @@ use gtk4::prelude::*;
 pub struct WindowList {
     #[template_child]
     pub list: TemplateChild<gtk4::ListView>,
+
+    /// Tab can be released while the window model is still loading. Remember the
+    /// confirmation and apply it as soon as the first selection becomes available.
+    pub activation_pending: Cell<bool>,
+
+    /// Preserve repeated shortcut activations that arrive while the window model
+    /// is still being loaded.
+    pub pending_advances: Cell<i32>,
 }
 
 #[glib::object_subclass]
@@ -64,17 +72,8 @@ impl ObjectImpl for WindowList {
         self.list.connect_activate(clone!(
             #[weak]
             obj,
-            move |list, position| {
-                /* Get the WindowInfo object associeted with the provided position */
-                let window_info = list
-                    .model()
-                    .expect("List view should have a model")
-                    .item(position)
-                    .and_downcast::<WindowInfo>()
-                    .expect("Model item has to be a 'WindowInfo'");
-
-                /* Emit a signal with the window id of the chosen window */
-                obj.emit_by_name("window-selected", &[&window_info.id()])
+            move |_, position| {
+                obj.activate_position(position);
             }
         ));
     }

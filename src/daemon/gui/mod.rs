@@ -36,6 +36,13 @@ fn handle_key_pressed(key: gdk4::Key, window_ref: &WindowWeakRef) -> glib::Propa
     glib::Propagation::Proceed
 }
 
+/// Confirm the currently highlighted window when Tab is released.
+fn handle_key_released(key: gdk4::Key, list: &WindowList) {
+    if matches!(key, gdk4::Key::Tab | gdk4::Key::ISO_Left_Tab) {
+        list.activate_selected();
+    }
+}
+
 /// Updates the cached window list with new windows, and remove the old ones
 fn update_window_cache(windows: &[niri_ipc::Window], store: &GlobalStoreRef) {
     /* Create a set of current window ids */
@@ -92,6 +99,11 @@ async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
      * This is also the initial filling of the list. */
     list.clear_the_list();
 
+    /* Present before the blocking window query so even a very quick Tab release is
+     * captured. WindowList defers confirmation until the model has been filled. */
+    window.present();
+    list.focus_to_list();
+
     /* niri socket uses blocking calls, so it will be run on a separate thread */
     let store_ref = store.clone();
     let mut windows = gio::spawn_blocking(move || {
@@ -103,6 +115,8 @@ async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
 
     /* No need to display anything if there is no window */
     if windows.is_empty() {
+        list.cancel_pending_activation();
+        window.close();
         return;
     }
 
@@ -120,11 +134,8 @@ async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
     /* Append windows to the list model */
     list.fill_the_list(&windows, store);
 
-    /* Next bring the window back to visibility */
-    window.present();
-
-    /* List will lose focus after droping the elements, need to grab it again */
-    list.focus_to_list();
+    /* The window was presented before loading so that it could catch a quick Tab
+     * release. If that happened, filling the list confirms the first selection. */
 }
 
 /// Handle event from the D-Bus connection
@@ -199,6 +210,11 @@ fn activate(application: &gtk4::Application, global_store: &GlobalStoreRef) {
     let keyboard_controller = gtk4::EventControllerKey::new();
     keyboard_controller
         .connect_key_pressed(move |_, key, _, _| handle_key_pressed(key, &window_ref));
+    keyboard_controller.connect_key_released(clone!(
+        #[weak]
+        window_list,
+        move |_, key, _, _| handle_key_released(key, &window_list)
+    ));
 
     window.add_controller(keyboard_controller);
 
@@ -207,6 +223,7 @@ fn activate(application: &gtk4::Application, global_store: &GlobalStoreRef) {
     window.init_layer_shell();
     window.set_layer(gtk4_layer_shell::Layer::Overlay);
     window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+    window.set_namespace(Some("niri-switch"));
     window.set_hide_on_close(true);
 
     /* DBus server will communicate with GTK app via async channel */

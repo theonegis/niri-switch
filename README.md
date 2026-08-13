@@ -1,3 +1,12 @@
+> [!TIP]
+> This fork adds a larger frosted-glass window switcher, vertical app cards, cyclic Tab navigation, and automatic focus when Tab is released.
+>
+> To build and install it:
+> ```sh
+> cargo install --path . --force
+> ```
+> Restart `niri-switch-daemon` after installation to use the new version.
+
 > [!NOTE]  
 > Since new versions of niri compositor have native Alt+Tab functionality built in, I will no longer maintain this project.
 
@@ -103,7 +112,7 @@ binds {
 
 ## Navigation
 
-After opening the overlay (e.g. via Alt + Tab), you can move around with arrow keys and select a window with Enter. To exit without focusing on any window, press Escape.
+After opening the overlay (e.g. via Alt + Tab), keep the shortcut held to advance through the windows. Releasing Tab focuses the highlighted window. You can also move around with arrow keys and select a window with Enter. To exit without focusing on any window, press Escape.
 
 Repeated calls to `niri-switch` will also advance the selection.
 
@@ -124,6 +133,19 @@ niri-switch is based on GTK4 and will use your system's default GTK settings. Th
 gtk-application-prefer-dark-theme = true
 ```
 to the `settings.ini` file (this will have a global effect). Or run the `niri-switch-daemon` with `GTK_THEME` environment variable.
+
+The default theme uses a translucent glass panel. On niri 26.04 or newer, add this layer rule to your niri configuration to blur the desktop behind it:
+
+```kdl
+layer-rule {
+    match namespace="^niri-switch$"
+
+    background-effect {
+        blur true
+        xray false
+    }
+}
+```
 
 ## Customization
 
