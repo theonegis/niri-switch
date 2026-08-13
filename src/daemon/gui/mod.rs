@@ -27,12 +27,21 @@ const GTK4_APP_ID: &str = "org.kikibouba.NiriSwitch";
 const CLIENT_REQUEST_CAP: usize = 20;
 
 /// Handle key press events on the main window
-fn handle_key_pressed(key: gdk4::Key, window_ref: &WindowWeakRef) -> glib::Propagation {
+fn handle_key_pressed(
+    key: gdk4::Key,
+    window_ref: &WindowWeakRef,
+    list: &WindowList,
+) -> glib::Propagation {
     if key == gdk4::Key::Escape {
         let window = window_ref
             .upgrade()
             .expect("Controller shouldn't outlive the window");
         window.close();
+        return glib::Propagation::Stop;
+    }
+    if matches!(key, gdk4::Key::Return | gdk4::Key::KP_Enter) {
+        list.activate_selected();
+        return glib::Propagation::Stop;
     }
     glib::Propagation::Proceed
 }
@@ -136,6 +145,12 @@ async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
      * This is also the initial filling of the list. */
     list.clear_the_list();
 
+    /* GtkWindow remembers its previous mapped size, even when the model later
+     * contains fewer rows. Reset that remembered size so the surface shrinks to
+     * the current list instead of leaving all stale space on its right edge. */
+    window.set_default_size(1, 1);
+    window.queue_resize();
+
     /* Present before the blocking window query so the held shortcut modifier and
      * its release are captured. Confirmation is deferred while the model loads. */
     window.present();
@@ -170,6 +185,8 @@ async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
 
     /* Append windows to the list model */
     list.fill_the_list(&windows, store);
+    list.queue_resize();
+    window.queue_resize();
 
     /* The window was presented before loading so that it could catch a quick Tab
      * release. If that happened, filling the list confirms the first selection. */
@@ -250,8 +267,13 @@ fn activate(application: &gtk4::Application, global_store: &GlobalStoreRef) {
      * potentially cause a reference cycle and memory leak */
     let window_ref = window.downgrade();
     let keyboard_controller = gtk4::EventControllerKey::new();
-    keyboard_controller
-        .connect_key_pressed(move |_, key, _, _| handle_key_pressed(key, &window_ref));
+    keyboard_controller.connect_key_pressed(clone!(
+        #[weak]
+        window_list,
+        #[upgrade_or]
+        glib::Propagation::Proceed,
+        move |_, key, _, _| handle_key_pressed(key, &window_ref, &window_list)
+    ));
     keyboard_controller.connect_key_released(clone!(
         #[weak]
         window_list,

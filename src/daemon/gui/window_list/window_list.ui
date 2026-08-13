@@ -2,11 +2,13 @@
 <!-- niri-switch  Copyright (C) 2025  Kiki/Bouba Team -->
 <interface>
   <template class="WindowList" parent="GtkBox">
+    <property name="orientation">vertical</property>
     <child>
-      <object class="GtkListView" id="list">
-        <property name="orientation">horizontal</property>
-        <property name="single_click_activate">true</property>
-        <property name="css-name">window-list</property>
+      <object class="GtkBox" id="rows">
+        <property name="orientation">vertical</property>
+        <property name="halign">center</property>
+        <property name="hexpand">false</property>
+        <property name="spacing">0</property>
       </object>
     </child>
   </template>

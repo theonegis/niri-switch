@@ -33,16 +33,7 @@ window-list-wrapper {
     color: var(--primary-text);
 }
 
-window-list,
-window-list.view {
-    border: none;
-    background: transparent;
-    background-color: transparent;
-    background-image: none;
-    box-shadow: none;
-}
-
-window-list row {
+.window-card {
     margin: 2px;
     padding: 4px;
     border: 1px solid transparent;
@@ -54,20 +45,18 @@ window-list row {
     transition: 120ms ease-in-out;
 }
 
-/* Keep the list's unselected content completely clear. GtkListView otherwise
- * contributes a faint rectangular surface inside the rounded outer panel. */
-window-list row:not(:selected) {
+.window-card:not(.selected) {
     background-color: transparent;
     background-image: none;
     box-shadow: none;
 }
 
-window-list row:hover:not(:selected) {
+.window-card:hover:not(.selected) {
     background-color: alpha(white, 0.25);
 }
 
 /* Pale blue-green glass for the active card, with enough contrast for dark text. */
-window-list row:selected {
+.window-card.selected {
     border-color: transparent;
     background-color: transparent;
     background-image: none;
@@ -85,7 +74,7 @@ window-item-box {
     background-image: none;
 }
 
-window-list row:selected window-item-box {
+.window-card.selected window-item-box {
     border-color: alpha(#63a9a6, 0.34);
     background-color: alpha(#a8d9d6, 0.42);
     background-image: linear-gradient(to bottom, alpha(#eafffd, 0.30), alpha(#8dc9c7, 0.12));
@@ -97,14 +86,14 @@ window-item-description {
 }
 
 window-item-label,
-window-list row:selected window-item-label {
+.window-card.selected window-item-label {
     font-size: 17px;
     font-weight: 600;
     color: var(--primary-text);
 }
 
 window-item-title,
-window-list row:selected window-item-title {
+.window-card.selected window-item-title {
     margin-top: 3px;
     font-size: 12px;
     color: var(--secondary-text);
