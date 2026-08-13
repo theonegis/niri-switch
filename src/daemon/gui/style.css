@@ -1,76 +1,115 @@
-/* See https://docs.gtk.org/gtk4/css-properties.html for reference. */
+/* Light frosted-glass theme with client-side rounded corners. */
 
 :root {
-    --switcher-radius: 20px;
-    --card-radius: 14px;
+    --switcher-radius: 12px;
+    --card-radius: 10px;
+    --primary-text: #17292c;
+    --secondary-text: #53676a;
 }
 
-/* Keep the layer surface transparent. The panel below supplies the glass tint;
- * niri can blur everything behind this surface with the documented layer rule. */
+/* Clear every GTK window background. The root panel below is the only painted
+ * surface, so its rounded corners reveal true transparency rather than white. */
 window,
-window.background {
+window.background,
+window.niri-switch-window,
+window.niri-switch-window.background,
+window.niri-switch-window > contents,
+.niri-switch-window > contents {
+    border: none;
+    background: transparent;
     background-color: transparent;
+    background-image: none;
     box-shadow: none;
 }
 
-/* Frosted-glass panel around the complete switcher. */
+/* One gray-white translucent panel; no separate compositor blur layer. */
 window-list-wrapper {
-    padding: 12px;
-    border: 1px solid alpha(@theme_fg_color, 0.14);
-    border-radius: var(--switcher-radius);
-    background-color: alpha(@theme_bg_color, 0.72);
-    box-shadow: 0 12px 38px alpha(black, 0.26);
-}
-
-window-list {
+    padding: 10px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
     background-color: transparent;
+    background-image: none;
+    color: var(--primary-text);
 }
 
-/* Each window is a vertical card: icon, app name, then window title. */
+window-list,
+window-list.view {
+    border: none;
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+
 window-list row {
     margin: 2px;
+    padding: 4px;
     border: 1px solid transparent;
     border-radius: var(--card-radius);
+    background: transparent;
     background-color: transparent;
-    color: @theme_fg_color;
+    background-image: none;
+    color: var(--primary-text);
     transition: 120ms ease-in-out;
 }
 
-window-list row:hover:not(:selected) {
-    background-color: alpha(@theme_fg_color, 0.06);
+/* Keep the list's unselected content completely clear. GtkListView otherwise
+ * contributes a faint rectangular surface inside the rounded outer panel. */
+window-list row:not(:selected) {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
 }
 
+window-list row:hover:not(:selected) {
+    background-color: alpha(white, 0.25);
+}
+
+/* Pale blue-green glass for the active card, with enough contrast for dark text. */
 window-list row:selected {
-    border-color: alpha(@theme_selected_fg_color, 0.22);
-    background-color: alpha(@theme_selected_bg_color, 0.72);
-    color: @theme_selected_fg_color;
-    box-shadow: 0 6px 18px alpha(black, 0.18);
+    border-color: transparent;
+    background-color: transparent;
+    background-image: none;
+    color: var(--primary-text);
+    box-shadow: none;
 }
 
 window-item-box {
-    min-height: 213px;
-    padding: 21px 18px 18px;
+    min-width: 142px;
+    min-height: 142px;
+    padding: 8px 7px 7px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background-color: transparent;
+    background-image: none;
+}
+
+window-list row:selected window-item-box {
+    border-color: alpha(#63a9a6, 0.34);
+    background-color: alpha(#a8d9d6, 0.42);
+    background-image: linear-gradient(to bottom, alpha(#eafffd, 0.30), alpha(#8dc9c7, 0.12));
+    box-shadow: inset 0 1px alpha(white, 0.42);
 }
 
 window-item-description {
-    margin-top: 15px;
+    margin-top: 8px;
 }
 
-window-item-label {
+window-item-label,
+window-list row:selected window-item-label {
     font-size: 17px;
     font-weight: 600;
+    color: var(--primary-text);
 }
 
-window-item-title {
-    margin-top: 4.5px;
-    font-size: 12px;
-    color: alpha(@theme_fg_color, 0.62);
-}
-
+window-item-title,
 window-list row:selected window-item-title {
-    color: alpha(@theme_selected_fg_color, 0.78);
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--secondary-text);
 }
 
 window-item-icon {
-    -gtk-icon-size: 84px;
+    -gtk-icon-size: 82px;
 }

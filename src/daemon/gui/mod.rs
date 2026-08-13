@@ -12,6 +12,7 @@ use gtk4::glib::clone;
 use gtk4::prelude::*;
 use gtk4_layer_shell::LayerShell;
 use std::{
+    cell::Cell,
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
@@ -36,11 +37,47 @@ fn handle_key_pressed(key: gdk4::Key, window_ref: &WindowWeakRef) -> glib::Propa
     glib::Propagation::Proceed
 }
 
-/// Confirm the currently highlighted window when Tab is released.
+/// Confirm the current selection when the shortcut key or its modifier is released.
+///
+/// niri consumes the Tab event used by its global binding, so a layer-shell client
+/// cannot rely on receiving that release. The Alt/Super release is still delivered
+/// after the overlay has keyboard focus and provides the usual task-switcher flow.
 fn handle_key_released(key: gdk4::Key, list: &WindowList) {
-    if matches!(key, gdk4::Key::Tab | gdk4::Key::ISO_Left_Tab) {
+    if matches!(
+        key,
+        gdk4::Key::Tab
+            | gdk4::Key::ISO_Left_Tab
+            | gdk4::Key::Alt_L
+            | gdk4::Key::Alt_R
+            | gdk4::Key::Super_L
+            | gdk4::Key::Super_R
+            | gdk4::Key::Meta_L
+            | gdk4::Key::Meta_R
+            | gdk4::Key::Hyper_L
+            | gdk4::Key::Hyper_R
+    ) {
         list.activate_selected();
     }
+}
+
+/// Confirm when the held Alt/Mod modifier disappears from the modifier state.
+fn handle_modifiers_changed(
+    state: gdk4::ModifierType,
+    modifier_seen: &Cell<bool>,
+    list: &WindowList,
+) -> glib::Propagation {
+    let selector_modifiers = gdk4::ModifierType::ALT_MASK
+        | gdk4::ModifierType::SUPER_MASK
+        | gdk4::ModifierType::META_MASK
+        | gdk4::ModifierType::HYPER_MASK;
+
+    if state.intersects(selector_modifiers) {
+        modifier_seen.set(true);
+    } else if modifier_seen.replace(false) {
+        list.activate_selected();
+    }
+
+    glib::Propagation::Proceed
 }
 
 /// Updates the cached window list with new windows, and remove the old ones
@@ -73,8 +110,8 @@ fn sort_windows_by_cached_order(windows: &mut [niri_ipc::Window], store: &Global
 async fn handle_previous_selection(list: &WindowList) {
     let window = list
         .root()
-        .and_downcast::<gtk4::Window>()
-        .expect("Root widget has to be a 'Window'");
+        .and_downcast::<gtk4::ApplicationWindow>()
+        .expect("Root widget has to be an 'ApplicationWindow'");
 
     /* If window is already shown, move back the selection */
     if window.is_visible() {
@@ -87,8 +124,8 @@ async fn handle_previous_selection(list: &WindowList) {
 async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
     let window = list
         .root()
-        .and_downcast::<gtk4::Window>()
-        .expect("Root widget has to be a 'Window'");
+        .and_downcast::<gtk4::ApplicationWindow>()
+        .expect("Root widget has to be an 'ApplicationWindow'");
 
     /* If window is already shown, simply advance the selection */
     if window.is_visible() {
@@ -99,8 +136,8 @@ async fn handle_daemon_activated(list: &WindowList, store: &GlobalStoreRef) {
      * This is also the initial filling of the list. */
     list.clear_the_list();
 
-    /* Present before the blocking window query so even a very quick Tab release is
-     * captured. WindowList defers confirmation until the model has been filled. */
+    /* Present before the blocking window query so the held shortcut modifier and
+     * its release are captured. Confirmation is deferred while the model loads. */
     window.present();
     list.focus_to_list();
 
@@ -203,6 +240,11 @@ fn activate(application: &gtk4::Application, global_store: &GlobalStoreRef) {
         .child(&window_list)
         .build();
 
+    /* GtkWindow adds the generic `background` CSS class automatically. Themes
+     * such as Orchis paint that class as an opaque rectangle before the child
+     * snapshot, which remains visible outside our rounded panel. */
+    window.remove_css_class("background");
+
     /* Create a weak reference to the window, this will be moved to keyboard controller
      * which will later be attached to the window - with strong referance this could
      * potentially cause a reference cycle and memory leak */
@@ -215,16 +257,37 @@ fn activate(application: &gtk4::Application, global_store: &GlobalStoreRef) {
         window_list,
         move |_, key, _, _| handle_key_released(key, &window_list)
     ));
+    let modifier_seen = Cell::new(false);
+    keyboard_controller.connect_modifiers(clone!(
+        #[weak]
+        window_list,
+        #[upgrade_or]
+        glib::Propagation::Proceed,
+        move |_, state| handle_modifiers_changed(state, &modifier_seen, &window_list)
+    ));
 
     window.add_controller(keyboard_controller);
 
     /* Move this window to the shell layer, this allows to escape Niri compositor
      * and display window on top of everything else */
     window.init_layer_shell();
+    window.set_decorated(false);
+    window.set_resizable(false);
+    window.add_css_class("niri-switch-window");
+    /* A layer-shell surface with no anchors is centered by the compositor. */
+    window.set_anchor(gtk4_layer_shell::Edge::Left, false);
+    window.set_anchor(gtk4_layer_shell::Edge::Top, false);
+    window.set_anchor(gtk4_layer_shell::Edge::Right, false);
+    window.set_anchor(gtk4_layer_shell::Edge::Bottom, false);
+    window.set_margin(gtk4_layer_shell::Edge::Left, 0);
+    window.set_margin(gtk4_layer_shell::Edge::Top, 0);
+    window.set_margin(gtk4_layer_shell::Edge::Right, 0);
+    window.set_margin(gtk4_layer_shell::Edge::Bottom, 0);
     window.set_layer(gtk4_layer_shell::Layer::Overlay);
     window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
     window.set_namespace(Some("niri-switch"));
     window.set_hide_on_close(true);
+    window.set_exclusive_zone(0);
 
     /* DBus server will communicate with GTK app via async channel */
     let (sender, receiver) = async_channel::bounded(CLIENT_REQUEST_CAP);

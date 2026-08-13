@@ -87,6 +87,7 @@ impl WindowList {
         let list_store = get_list_store(&imp.list);
         list_store.remove_all();
         imp.activation_pending.set(false);
+        imp.activation_committed.set(false);
         imp.pending_advances.set(0);
     }
 
@@ -99,11 +100,16 @@ impl WindowList {
     /// Activate the currently highlighted window. If the model is still loading,
     /// defer activation until `fill_the_list` has produced a selection.
     pub fn activate_selected(&self) {
+        if self.imp().activation_committed.get() {
+            return;
+        }
+
         let selection_model = get_selection_model(&self.imp().list);
 
         match selection_model.selected_item().and_downcast::<WindowInfo>() {
             Some(window_info) => {
                 self.imp().activation_pending.set(false);
+                self.imp().activation_committed.set(true);
                 self.emit_by_name::<()>("window-selected", &[&window_info.id()]);
             }
             None => self.imp().activation_pending.set(true),
@@ -112,6 +118,10 @@ impl WindowList {
 
     /// Activate an item chosen with pointer input or Enter.
     pub fn activate_position(&self, position: u32) {
+        if self.imp().activation_committed.replace(true) {
+            return;
+        }
+
         let window_info = get_selection_model(&self.imp().list)
             .item(position)
             .and_downcast::<WindowInfo>()

@@ -22,6 +22,10 @@ pub struct WindowList {
     /// confirmation and apply it as soon as the first selection becomes available.
     pub activation_pending: Cell<bool>,
 
+    /// Prevent the key-release and modifier-state callbacks from committing the
+    /// same selection twice.
+    pub activation_committed: Cell<bool>,
+
     /// Preserve repeated shortcut activations that arrive while the window model
     /// is still being loaded.
     pub pending_advances: Cell<i32>,
@@ -68,6 +72,7 @@ impl ObjectImpl for WindowList {
         self.list.set_model(Some(&selection_model));
 
         let obj = self.obj();
+        obj.set_overflow(gtk4::Overflow::Hidden);
         /* Emit a window-selected signal when the window is chosen from the list */
         self.list.connect_activate(clone!(
             #[weak]
@@ -79,7 +84,30 @@ impl ObjectImpl for WindowList {
     }
 }
 
-impl WidgetImpl for WindowList {}
+impl WidgetImpl for WindowList {
+    fn snapshot(&self, snapshot: &gtk4::Snapshot) {
+        let widget = self.obj();
+        let bounds =
+            gtk4::graphene::Rect::new(0.0, 0.0, widget.width() as f32, widget.height() as f32);
+        let rounded_bounds = gtk4::gsk::RoundedRect::from_rect(bounds, 12.0);
+
+        let panel_color = gdk4::RGBA::new(0.93, 0.94, 0.94, 0.65);
+
+        // Paint one self-contained translucent panel. Native Wayland blur is
+        // intentionally not requested, so there is no second surface to drift.
+        snapshot.push_rounded_clip(&rounded_bounds);
+        snapshot.append_color(&panel_color, &bounds);
+        self.parent_snapshot(snapshot);
+        snapshot.pop();
+
+        let border_color = gdk4::RGBA::new(1.0, 1.0, 1.0, 0.72);
+        snapshot.append_border(
+            &rounded_bounds,
+            &[1.0; 4],
+            &[border_color, border_color, border_color, border_color],
+        );
+    }
+}
 impl BoxImpl for WindowList {}
 
 /// Creates a gtk widget factory for displaying window information.

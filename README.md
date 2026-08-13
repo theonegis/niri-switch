@@ -1,11 +1,13 @@
 > [!TIP]
-> This fork adds a larger frosted-glass window switcher, vertical app cards, cyclic Tab navigation, and automatic focus when Tab is released.
+> This fork adds a light frosted-glass window switcher, vertical app cards, cyclic Tab navigation, and automatic focus when the held Alt/Mod key is released.
 >
 > To build and install it:
 > ```sh
 > cargo install --path . --force
 > ```
 > Restart `niri-switch-daemon` after installation to use the new version.
+
+![niri-switch preview](docs/niri-switch-preview.png)
 
 > [!NOTE]  
 > Since new versions of niri compositor have native Alt+Tab functionality built in, I will no longer maintain this project.
@@ -15,8 +17,6 @@
 niri-switch implements fast task switching for the [niri](https://github.com/YaLTeR/niri) compositor. It aims to provide functionality similar to the Alt-Tab known from Windows, Gnome, KDE Plasma and many other desktop environments.
 
 The main use case is quickly switching between windows located on different displays and/or workspaces.
-
-<img width="611" height="96" alt="image" src="https://github.com/user-attachments/assets/c2261156-9ad0-45df-ab25-c6e6964b7dd0" />
 
 The program is currently **usable** and quite stable. It still requires a few features to be completed to actually deliver a good user experience. But anyone is welcome to play around with it and provide much appreciated feedback.
 
@@ -112,7 +112,7 @@ binds {
 
 ## Navigation
 
-After opening the overlay (e.g. via Alt + Tab), keep the shortcut held to advance through the windows. Releasing Tab focuses the highlighted window. You can also move around with arrow keys and select a window with Enter. To exit without focusing on any window, press Escape.
+After opening the overlay (e.g. via Alt + Tab), keep Alt/Mod held and press Tab repeatedly to advance through the windows. Releasing Alt/Mod focuses the highlighted window. You can also move around with arrow keys and select a window with Enter. To exit without focusing on any window, press Escape.
 
 Repeated calls to `niri-switch` will also advance the selection.
 
@@ -134,18 +134,7 @@ gtk-application-prefer-dark-theme = true
 ```
 to the `settings.ini` file (this will have a global effect). Or run the `niri-switch-daemon` with `GTK_THEME` environment variable.
 
-The default theme uses a translucent glass panel. On niri 26.04 or newer, add this layer rule to your niri configuration to blur the desktop behind it:
-
-```kdl
-layer-rule {
-    match namespace="^niri-switch$"
-
-    background-effect {
-        blur true
-        xray false
-    }
-}
-```
+The default theme uses a gray-white panel with 0.65 opacity and a 12 px client-side corner radius. The selected card uses a separate pale blue-green background with clear spacing from the outer panel. The program centers its layer-shell surface on the current monitor, so no positioning rule is required. Native compositor blur is intentionally disabled to avoid a second background layer drifting away from the GTK panel when its size changes. Remove any old `niri-switch` positioning, blur, or geometry `layer-rule` so it does not override the program's placement and appearance.
 
 ## Customization
 

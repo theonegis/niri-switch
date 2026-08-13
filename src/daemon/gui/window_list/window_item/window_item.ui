@@ -5,7 +5,7 @@
     <property name="orientation">vertical</property>
     <property name="halign">center</property>
     <property name="valign">center</property>
-    <property name="width-request">252</property>
+    <property name="width-request">142</property>
     <child>
       <object class="GtkImage" id="icon">
         <property name="css-name">window-item-icon</property>
